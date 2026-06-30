@@ -3,8 +3,8 @@ const express = require('express');
 const multer = require('multer');
 const { S3Client, ListObjectsV2Command, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
-const { v4: uuidv4 } = require('uuid');
 const path = require('path');
+const XLSX = require('xlsx');
 
 const app = express();
 app.use(express.json());
@@ -76,6 +76,33 @@ app.get('/videos', async (req, res) => {
         lastModified: o.LastModified,
       }));
     res.json(items);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/export', async (req, res) => {
+  try {
+    const cmd = new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'videos/' });
+    const data = await s3.send(cmd);
+    const rows = (data.Contents || [])
+      .filter(o => o.Key !== 'videos/')
+      .sort((a, b) => b.LastModified - a.LastModified)
+      .map(o => ({
+        'File Name': o.Key.split('/').pop().replace(/^\d+_/, ''),
+        'URL': `${PUBLIC_URL}/${o.Key}`,
+      }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{ wch: 40 }, { wch: 80 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Videos');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Disposition', 'attachment; filename="video-urls.xlsx"');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buf);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });

@@ -190,9 +190,16 @@
   <input type="file" id="file-input" accept="video/*" multiple />
 </div>
 
+<div id="queue-header" style="display:none; justify-content:space-between; align-items:center; margin-bottom:10px;">
+  <span style="font-size:0.9rem;color:#94a3b8;">Upload queue</span>
+  <button id="clear-queue-btn" onclick="clearQueue()" style="background:#1e1e2e;border:1px solid #2d2d3f;color:#94a3b8;border-radius:6px;padding:4px 12px;font-size:0.78rem;cursor:pointer;">Clear</button>
+</div>
 <div id="queue"></div>
 
-<h2>Uploaded Videos</h2>
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+  <h2 style="margin-bottom:0;">Uploaded Videos</h2>
+  <button onclick="exportExcel()" style="background:#1e3a5f;color:#60a5fa;border:none;border-radius:6px;padding:6px 14px;font-size:0.8rem;cursor:pointer;">⬇ Download URLs (.xlsx)</button>
+</div>
 <div id="library"><div id="library-loading">Loading...</div></div>
 
 <script>
@@ -226,6 +233,15 @@
     fileInput.value = '';
   }
 
+  function clearQueue() {
+    queue.innerHTML = '';
+    document.getElementById('queue-header').style.display = 'none';
+  }
+
+  function exportExcel() {
+    window.location.href = '/export';
+  }
+
   function uploadFile(file) {
     const id = Math.random().toString(36).slice(2);
 
@@ -240,6 +256,7 @@
       <progress id="qp-${id}" value="0" max="100"></progress>
     `;
     queue.prepend(item);
+    document.getElementById('queue-header').style.display = 'flex';
 
     const xhr = new XMLHttpRequest();
     const fd = new FormData();
