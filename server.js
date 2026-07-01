@@ -34,8 +34,8 @@ const upload = multer({
 
 app.post('/upload', upload.single('video'), async (req, res) => {
   try {
-    const safeName = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const key = `videos/${Date.now()}_${safeName}`;
+    const ext = path.extname(req.file.originalname) || '.mp4';
+    const key = `videos/${Date.now()}${ext}`;
 
     const uploader = new Upload({
       client: s3,
