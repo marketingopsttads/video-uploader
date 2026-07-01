@@ -54,7 +54,7 @@ app.post('/upload', upload.single('video'), async (req, res) => {
     await uploader.done();
 
     const publicUrl = `${PUBLIC_URL}/${key}`;
-    res.json({ success: true, url: publicUrl, key, name: safeName, size: req.file.size });
+    res.json({ success: true, url: publicUrl, key, name: key.split('/').pop(), size: req.file.size });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, error: err.message });
