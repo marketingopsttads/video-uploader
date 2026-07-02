@@ -118,10 +118,11 @@ app.get('/export', async (req, res) => {
       .map(o => ({
         'File Name': filenameMap[o.Key] || o.Key.split('/').pop(),
         'URL': `${PUBLIC_URL}/${o.Key}`,
+        'Uploaded At': new Date(o.LastModified).toISOString().replace('T', ' ').slice(0, 19) + ' UTC',
       }));
 
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 50 }, { wch: 80 }];
+    ws['!cols'] = [{ wch: 50 }, { wch: 80 }, { wch: 22 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Videos');
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
