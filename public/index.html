@@ -284,6 +284,15 @@
           <button class="btn-copy" onclick="copyUrl(this, '${data.url}')">Copy URL</button>
         `;
         item.appendChild(row);
+        if (data.thumbnailUrl) {
+          const thumbRow = document.createElement('div');
+          thumbRow.className = 'copy-url-row';
+          thumbRow.innerHTML = `
+            <div class="url-text" style="color:#64748b;">🖼 ${data.thumbnailUrl}</div>
+            <button class="btn-copy" onclick="copyUrl(this, '${data.thumbnailUrl}')">Copy Thumbnail</button>
+          `;
+          item.appendChild(thumbRow);
+        }
         loadLibrary();
       } else {
         statusEl.textContent = 'Error';
@@ -324,6 +333,7 @@
           </div>
           <div class="lib-actions">
             <button class="btn-lib-copy" onclick="copyLibUrl(this, '${v.url}')">Copy URL</button>
+            ${v.hasThumbnail ? `<button class="btn-lib-copy" onclick="copyLibUrl(this, '${v.thumbnailUrl}')">Copy Thumbnail</button>` : ''}
             <button class="btn-lib-delete" onclick="deleteVideo(this, '${v.key}')">Delete</button>
           </div>
         </div>

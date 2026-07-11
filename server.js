@@ -111,17 +111,22 @@ app.post('/upload', upload.single('video'), async (req, res) => {
 
 app.get('/videos', async (req, res) => {
   try {
-    const data = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'videos/' }));
-    const items = (data.Contents || [])
+    const [videoData, thumbData] = await Promise.all([
+      s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'videos/' })),
+      s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'thumbnails/' })),
+    ]);
+    const thumbSet = new Set((thumbData.Contents || []).map(o => o.Key.split('/').pop()));
+    const items = (videoData.Contents || [])
       .filter(o => o.Key !== 'videos/')
       .sort((a, b) => b.LastModified - a.LastModified)
       .map(o => {
         const base = o.Key.split('/').pop().replace(/\.[^.]+$/, '');
-        const thumbKey = `thumbnails/${base}.jpg`;
+        const thumbFile = `${base}.jpg`;
         return {
           key: o.Key,
           url: `${PUBLIC_URL}/${o.Key}`,
-          thumbnailUrl: `${THUMBNAIL_PUBLIC_URL}/${thumbKey}`,
+          thumbnailUrl: `${THUMBNAIL_PUBLIC_URL}/thumbnails/${thumbFile}`,
+          hasThumbnail: thumbSet.has(thumbFile),
           name: displayName(o.Key),
           size: o.Size,
           lastModified: o.LastModified,
@@ -136,22 +141,28 @@ app.get('/videos', async (req, res) => {
 
 app.get('/export', async (req, res) => {
   try {
-    const data = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'videos/' }));
-    const rows = (data.Contents || [])
+    const [videoData, thumbData] = await Promise.all([
+      s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'videos/' })),
+      s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'thumbnails/' })),
+    ]);
+    const thumbSet = new Set((thumbData.Contents || []).map(o => o.Key.split('/').pop()));
+    const rows = (videoData.Contents || [])
       .filter(o => o.Key !== 'videos/')
       .sort((a, b) => b.LastModified - a.LastModified)
       .map(o => {
         const base = o.Key.split('/').pop().replace(/\.[^.]+$/, '');
-        return {
+        const thumbFile = `${base}.jpg`;
+        const row = {
           'File Name': displayName(o.Key),
           'URL': `${PUBLIC_URL}/${o.Key}`,
-          'Thumbnail URL': `${THUMBNAIL_PUBLIC_URL}/thumbnails/${base}.jpg`,
           'Uploaded At': new Date(o.LastModified).toISOString().replace('T', ' ').slice(0, 19) + ' UTC',
         };
+        if (thumbSet.has(thumbFile)) row['Thumbnail URL'] = `${THUMBNAIL_PUBLIC_URL}/thumbnails/${thumbFile}`;
+        return row;
       });
 
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 50 }, { wch: 80 }, { wch: 80 }, { wch: 22 }];
+    ws['!cols'] = [{ wch: 50 }, { wch: 80 }, { wch: 22 }, { wch: 80 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Videos');
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
