@@ -178,7 +178,8 @@ app.get('/export', async (req, res) => {
 
 app.delete('/videos/*key', async (req, res) => {
   try {
-    const key = req.params.key;
+    const raw = req.params.key;
+    const key = Array.isArray(raw) ? raw.join('/') : raw;
     await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
     // Also delete associated thumbnail
     const base = key.split('/').pop().replace(/\.[^.]+$/, '');
