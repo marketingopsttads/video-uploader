@@ -174,7 +174,49 @@
 
     #library-empty { color: #475569; font-size: 0.9rem; text-align: center; padding: 24px 0; }
     #library-loading { color: #475569; font-size: 0.9rem; text-align: center; padding: 24px 0; }
+
+    /* Confirm modal */
+    .modal-backdrop {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: #1e1e2e;
+      border: 1px solid #3f3f5a;
+      border-radius: 12px;
+      padding: 28px 32px;
+      max-width: 400px;
+      width: 90%;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .modal h3 { font-size: 1rem; font-weight: 600; color: #f1f5f9; }
+    .modal p { font-size: 0.875rem; color: #94a3b8; line-height: 1.5; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+    .btn-cancel { background: #2d2d3f; color: #94a3b8; border: none; border-radius: 6px; padding: 7px 16px; font-size: 0.82rem; cursor: pointer; }
+    .btn-cancel:hover { background: #3f3f5a; }
+    .btn-confirm-del { background: #7f1d1d; color: #fca5a5; border: none; border-radius: 6px; padding: 7px 16px; font-size: 0.82rem; cursor: pointer; font-weight: 600; }
+    .btn-confirm-del:hover { background: #991b1b; color: #fff; }
+    .btn-confirm-del:disabled { opacity: 0.4; cursor: not-allowed; }
   </style>
+
+  <!-- Confirm modal -->
+  <div class="modal-backdrop" id="modal-backdrop">
+    <div class="modal">
+      <h3 id="modal-title">Are you sure?</h3>
+      <p id="modal-body"></p>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn-confirm-del" id="modal-confirm-btn">Delete</button>
+      </div>
+    </div>
+  </div>
 </head>
 <body>
 
@@ -198,7 +240,10 @@
 
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
   <h2 style="margin-bottom:0;">Uploaded Videos</h2>
-  <button onclick="exportExcel()" style="background:#1e3a5f;color:#60a5fa;border:none;border-radius:6px;padding:6px 14px;font-size:0.8rem;cursor:pointer;">⬇ Download URLs (.xlsx)</button>
+  <div style="display:flex;gap:8px;">
+    <button onclick="exportExcel()" style="background:#1e3a5f;color:#60a5fa;border:none;border-radius:6px;padding:6px 14px;font-size:0.8rem;cursor:pointer;">⬇ Download URLs (.xlsx)</button>
+    <button onclick="deleteAll()" style="background:#1c0f0f;color:#f87171;border:none;border-radius:6px;padding:6px 14px;font-size:0.8rem;cursor:pointer;">Delete All</button>
+  </div>
 </div>
 <div id="library"><div id="library-loading">Loading...</div></div>
 
@@ -334,7 +379,7 @@
           <div class="lib-actions">
             <button class="btn-lib-copy" onclick="copyLibUrl(this, '${v.url}')">Copy URL</button>
             ${v.hasThumbnail ? `<button class="btn-lib-copy" onclick="copyLibUrl(this, '${v.thumbnailUrl}')">Copy Thumbnail</button>` : ''}
-            <button class="btn-lib-delete" onclick="deleteVideo(this, '${v.key}')">Delete</button>
+            <button class="btn-lib-delete" onclick="deleteVideo(this, '${v.key}', '${v.name.replace(/'/g, "\\'")}')">Delete</button>
           </div>
         </div>
       `).join('');
@@ -351,12 +396,75 @@
     });
   }
 
-  async function deleteVideo(btn, key) {
-    if (!confirm('Delete this video?')) return;
-    const res = await fetch(`/videos/${key}`, { method: 'DELETE' });
-    const data = await res.json();
-    if (data.success) loadLibrary();
-    else alert('Delete failed: ' + data.error);
+  let modalCallback = null;
+
+  function openModal(title, body, confirmLabel, onConfirm) {
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-body').textContent = body;
+    const btn = document.getElementById('modal-confirm-btn');
+    btn.textContent = confirmLabel;
+    btn.disabled = false;
+    modalCallback = onConfirm;
+    document.getElementById('modal-backdrop').classList.add('open');
+  }
+
+  function closeModal() {
+    document.getElementById('modal-backdrop').classList.remove('open');
+    modalCallback = null;
+  }
+
+  document.getElementById('modal-confirm-btn').addEventListener('click', () => {
+    if (modalCallback) modalCallback();
+  });
+
+  document.getElementById('modal-backdrop').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeModal();
+  });
+
+  function deleteVideo(btn, key, name) {
+    openModal(
+      'Delete video?',
+      `"${name}" will be permanently removed from storage.`,
+      'Yes, delete',
+      () => {
+        closeModal();
+        openModal(
+          'Are you absolutely sure?',
+          'This cannot be undone. The video and its thumbnail will be deleted from R2.',
+          'Delete permanently',
+          async () => {
+            closeModal();
+            const res = await fetch(`/videos/${key}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success) loadLibrary();
+            else alert('Delete failed: ' + data.error);
+          }
+        );
+      }
+    );
+  }
+
+  function deleteAll() {
+    openModal(
+      'Delete all videos?',
+      'Every video and thumbnail in the library will be permanently removed from R2 storage.',
+      'Yes, delete all',
+      () => {
+        closeModal();
+        openModal(
+          'Final confirmation',
+          'This will permanently delete all files. There is no undo.',
+          'Delete everything',
+          async () => {
+            closeModal();
+            const res = await fetch('/videos', { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success) { loadLibrary(); }
+            else alert('Delete all failed: ' + data.error);
+          }
+        );
+      }
+    );
   }
 
   loadLibrary();

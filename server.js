@@ -176,6 +176,24 @@ app.get('/export', async (req, res) => {
   }
 });
 
+app.delete('/videos', async (req, res) => {
+  try {
+    const [videoData, thumbData] = await Promise.all([
+      s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'videos/' })),
+      s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'thumbnails/' })),
+    ]);
+    const keys = [
+      ...(videoData.Contents || []).filter(o => o.Key !== 'videos/').map(o => o.Key),
+      ...(thumbData.Contents || []).map(o => o.Key),
+    ];
+    await Promise.all(keys.map(k => s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: k })).catch(() => {})));
+    res.json({ success: true, deleted: keys.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.delete('/videos/*key', async (req, res) => {
   try {
     const raw = req.params.key;
