@@ -24,6 +24,7 @@ const s3 = new S3Client({
 
 const BUCKET = process.env.R2_BUCKET_NAME;
 const PUBLIC_URL = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
+const THUMBNAIL_PUBLIC_URL = (process.env.THUMBNAIL_PUBLIC_URL || PUBLIC_URL).replace(/\/$/, '');
 
 function displayName(key) {
   const base = key.split('/').pop();
@@ -96,7 +97,7 @@ app.post('/upload', upload.single('video'), async (req, res) => {
         Body: thumbBuffer,
         ContentType: 'image/jpeg',
       }));
-      thumbnailUrl = `${PUBLIC_URL}/${thumbKey}`;
+      thumbnailUrl = `${THUMBNAIL_PUBLIC_URL}/${thumbKey}`;
     }
 
     const publicUrl = `${PUBLIC_URL}/${key}`;
@@ -119,7 +120,7 @@ app.get('/videos', async (req, res) => {
         return {
           key: o.Key,
           url: `${PUBLIC_URL}/${o.Key}`,
-          thumbnailUrl: `${PUBLIC_URL}/${thumbKey}`,
+          thumbnailUrl: `${THUMBNAIL_PUBLIC_URL}/${thumbKey}`,
           name: displayName(o.Key),
           size: o.Size,
           lastModified: o.LastModified,
@@ -143,7 +144,7 @@ app.get('/export', async (req, res) => {
         return {
           'File Name': displayName(o.Key),
           'URL': `${PUBLIC_URL}/${o.Key}`,
-          'Thumbnail URL': `${PUBLIC_URL}/thumbnails/${base}.jpg`,
+          'Thumbnail URL': `${THUMBNAIL_PUBLIC_URL}/thumbnails/${base}.jpg`,
           'Uploaded At': new Date(o.LastModified).toISOString().replace('T', ' ').slice(0, 19) + ' UTC',
         };
       });
