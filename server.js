@@ -6,6 +6,7 @@ const { Upload } = require('@aws-sdk/lib-storage');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 const { execFile } = require('child_process');
 const XLSX = require('xlsx');
 
@@ -40,7 +41,7 @@ async function extractThumbnail(videoBuffer, videoExt) {
   try {
     fs.writeFileSync(tmpVideo, videoBuffer);
     await new Promise((resolve, reject) => {
-      execFile('ffmpeg', [
+      execFile(ffmpegPath, [
         '-ss', '3',           // seek to 3 seconds
         '-i', tmpVideo,
         '-vframes', '1',      // grab one frame
