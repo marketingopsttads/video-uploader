@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Video Uploader</title>
+  <title>Media Uploader</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -18,13 +18,42 @@
     h1 {
       font-size: 1.5rem;
       font-weight: 600;
-      margin-bottom: 28px;
+      margin-bottom: 24px;
       color: #f8fafc;
       letter-spacing: -0.02em;
     }
 
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: #1e1e2e;
+      border: 1px solid #2d2d3f;
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 28px;
+      width: fit-content;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      color: #64748b;
+      font-size: 0.875rem;
+      font-weight: 500;
+      padding: 7px 20px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .tab-btn:hover { color: #cbd5e1; }
+    .tab-btn.active { background: #6366f1; color: #fff; }
+
+    /* Tab panels */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
     /* Drop zone */
-    #drop-zone {
+    .drop-zone {
       border: 2px dashed #334155;
       border-radius: 12px;
       padding: 48px 24px;
@@ -32,23 +61,18 @@
       cursor: pointer;
       transition: border-color 0.2s, background 0.2s;
       margin-bottom: 28px;
-      position: relative;
     }
-    #drop-zone.drag-over {
+    .drop-zone.drag-over {
       border-color: #6366f1;
       background: rgba(99, 102, 241, 0.06);
     }
-    #drop-zone svg {
-      width: 40px; height: 40px;
-      color: #475569;
-      margin-bottom: 12px;
-    }
-    #drop-zone p { color: #94a3b8; font-size: 0.95rem; }
-    #drop-zone span { color: #6366f1; text-decoration: underline; cursor: pointer; }
-    #file-input { display: none; }
+    .drop-zone svg { width: 40px; height: 40px; color: #475569; margin-bottom: 12px; }
+    .drop-zone p { color: #94a3b8; font-size: 0.95rem; }
+    .drop-zone span { color: #6366f1; text-decoration: underline; cursor: pointer; }
+    .file-input { display: none; }
 
     /* Upload queue */
-    #queue { display: flex; flex-direction: column; gap: 10px; margin-bottom: 32px; }
+    .queue { display: flex; flex-direction: column; gap: 10px; margin-bottom: 32px; }
 
     .queue-item {
       background: #1e1e2e;
@@ -59,112 +83,57 @@
       flex-direction: column;
       gap: 8px;
     }
-    .queue-item-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
+    .queue-item-header { display: flex; justify-content: space-between; align-items: center; }
     .queue-item-name {
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: #cbd5e1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 70%;
+      font-size: 0.875rem; font-weight: 500; color: #cbd5e1;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70%;
     }
-    .queue-item-status {
-      font-size: 0.78rem;
-      font-weight: 500;
-      padding: 2px 8px;
-      border-radius: 9999px;
-    }
+    .queue-item-status { font-size: 0.78rem; font-weight: 500; padding: 2px 8px; border-radius: 9999px; }
     .status-uploading { background: #1e3a5f; color: #60a5fa; }
     .status-done { background: #14532d; color: #4ade80; }
     .status-error { background: #450a0a; color: #f87171; }
 
     progress {
-      width: 100%;
-      height: 4px;
-      border-radius: 4px;
-      appearance: none;
-      -webkit-appearance: none;
-      background: #2d2d3f;
+      width: 100%; height: 4px; border-radius: 4px;
+      appearance: none; -webkit-appearance: none; background: #2d2d3f;
     }
     progress::-webkit-progress-bar { background: #2d2d3f; border-radius: 4px; }
     progress::-webkit-progress-value { background: #6366f1; border-radius: 4px; }
 
-    .copy-url-row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
+    .copy-url-row { display: flex; gap: 8px; align-items: center; }
     .url-text {
-      flex: 1;
-      background: #0f0f13;
-      border: 1px solid #2d2d3f;
-      border-radius: 6px;
-      padding: 6px 10px;
-      font-size: 0.78rem;
-      color: #94a3b8;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      flex: 1; background: #0f0f13; border: 1px solid #2d2d3f; border-radius: 6px;
+      padding: 6px 10px; font-size: 0.78rem; color: #94a3b8;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .btn-copy {
-      background: #6366f1;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      padding: 6px 12px;
-      font-size: 0.78rem;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: background 0.15s;
+      background: #6366f1; color: #fff; border: none; border-radius: 6px;
+      padding: 6px 12px; font-size: 0.78rem; cursor: pointer; white-space: nowrap; transition: background 0.15s;
     }
     .btn-copy:hover { background: #4f46e5; }
     .btn-copy.copied { background: #16a34a; }
 
     /* Library */
-    h2 {
-      font-size: 1.1rem;
-      font-weight: 600;
-      color: #f1f5f9;
-      margin-bottom: 14px;
-    }
+    h2 { font-size: 1.1rem; font-weight: 600; color: #f1f5f9; margin-bottom: 14px; }
 
-    #library { display: flex; flex-direction: column; gap: 10px; }
+    .library { display: flex; flex-direction: column; gap: 10px; }
 
     .lib-item {
-      background: #1e1e2e;
-      border: 1px solid #2d2d3f;
-      border-radius: 10px;
-      padding: 14px 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
+      background: #1e1e2e; border: 1px solid #2d2d3f; border-radius: 10px;
+      padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    }
+    .lib-thumb {
+      width: 56px; height: 40px; border-radius: 5px; object-fit: cover;
+      background: #0f0f13; flex-shrink: 0; border: 1px solid #2d2d3f;
     }
     .lib-info { flex: 1; min-width: 0; }
-    .lib-name {
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: #cbd5e1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
+    .lib-name { font-size: 0.875rem; font-weight: 500; color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .lib-meta { font-size: 0.75rem; color: #64748b; margin-top: 3px; }
-
     .lib-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
 
     .btn-lib-copy, .btn-lib-delete {
-      border: none;
-      border-radius: 6px;
-      padding: 6px 12px;
-      font-size: 0.78rem;
-      cursor: pointer;
-      transition: background 0.15s;
+      border: none; border-radius: 6px; padding: 6px 12px;
+      font-size: 0.78rem; cursor: pointer; transition: background 0.15s;
     }
     .btn-lib-copy { background: #1e3a5f; color: #60a5fa; }
     .btn-lib-copy:hover { background: #1e40af; color: #fff; }
@@ -172,29 +141,19 @@
     .btn-lib-delete { background: #1c0f0f; color: #f87171; }
     .btn-lib-delete:hover { background: #450a0a; }
 
-    #library-empty { color: #475569; font-size: 0.9rem; text-align: center; padding: 24px 0; }
-    #library-loading { color: #475569; font-size: 0.9rem; text-align: center; padding: 24px 0; }
+    .lib-empty { color: #475569; font-size: 0.9rem; text-align: center; padding: 24px 0; }
 
     /* Confirm modal */
     .modal-backdrop {
-      display: none;
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.7);
-      z-index: 100;
-      align-items: center;
-      justify-content: center;
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7); z-index: 100;
+      align-items: center; justify-content: center;
     }
     .modal-backdrop.open { display: flex; }
     .modal {
-      background: #1e1e2e;
-      border: 1px solid #3f3f5a;
-      border-radius: 12px;
-      padding: 28px 32px;
-      max-width: 400px;
-      width: 90%;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
+      background: #1e1e2e; border: 1px solid #3f3f5a; border-radius: 12px;
+      padding: 28px 32px; max-width: 400px; width: 90%;
+      display: flex; flex-direction: column; gap: 16px;
     }
     .modal h3 { font-size: 1rem; font-weight: 600; color: #f1f5f9; }
     .modal p { font-size: 0.875rem; color: #94a3b8; line-height: 1.5; }
@@ -203,13 +162,12 @@
     .btn-cancel:hover { background: #3f3f5a; }
     .btn-confirm-del { background: #7f1d1d; color: #fca5a5; border: none; border-radius: 6px; padding: 7px 16px; font-size: 0.82rem; cursor: pointer; font-weight: 600; }
     .btn-confirm-del:hover { background: #991b1b; color: #fff; }
-    .btn-confirm-del:disabled { opacity: 0.4; cursor: not-allowed; }
   </style>
 
   <!-- Confirm modal -->
   <div class="modal-backdrop" id="modal-backdrop">
     <div class="modal">
-      <h3 id="modal-title">Are you sure?</h3>
+      <h3 id="modal-title"></h3>
       <p id="modal-body"></p>
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeModal()">Cancel</button>
@@ -220,52 +178,99 @@
 </head>
 <body>
 
-<h1>Video Uploader</h1>
+<h1>Media Uploader</h1>
 
-<div id="drop-zone">
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-      d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-  </svg>
-  <p>Drag & drop videos here, or <span id="browse-btn">browse</span></p>
-  <p style="font-size:0.8rem;margin-top:6px;color:#475569;">MP4, MOV, WebM, AVI · up to 2 GB each</p>
-  <input type="file" id="file-input" accept="video/*" multiple />
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('video', this)">Video</button>
+  <button class="tab-btn" onclick="switchTab('image', this)">Image</button>
 </div>
 
-<div id="queue-header" style="display:none; justify-content:space-between; align-items:center; margin-bottom:10px;">
-  <span style="font-size:0.9rem;color:#94a3b8;">Upload queue</span>
-  <button id="clear-queue-btn" onclick="clearQueue()" style="background:#1e1e2e;border:1px solid #2d2d3f;color:#94a3b8;border-radius:6px;padding:4px 12px;font-size:0.78rem;cursor:pointer;">Clear</button>
-</div>
-<div id="queue"></div>
-
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-  <h2 style="margin-bottom:0;">Uploaded Videos</h2>
-  <div style="display:flex;gap:8px;">
-    <button onclick="exportExcel()" style="background:#1e3a5f;color:#60a5fa;border:none;border-radius:6px;padding:6px 14px;font-size:0.8rem;cursor:pointer;">⬇ Download URLs (.xlsx)</button>
-    <button onclick="deleteAll()" style="background:#1c0f0f;color:#f87171;border:none;border-radius:6px;padding:6px 14px;font-size:0.8rem;cursor:pointer;">Delete All</button>
+<!-- ── VIDEO TAB ── -->
+<div id="tab-video" class="tab-panel active">
+  <div class="drop-zone" id="video-drop-zone">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+        d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+    </svg>
+    <p>Drag & drop videos here, or <span id="video-browse-btn">browse</span></p>
+    <p style="font-size:0.8rem;margin-top:6px;color:#475569;">MP4, MOV, WebM, AVI · up to 2 GB each</p>
+    <input type="file" class="file-input" id="video-file-input" accept="video/*" multiple />
   </div>
+
+  <div id="video-queue-header" style="display:none; justify-content:space-between; align-items:center; margin-bottom:10px;">
+    <span style="font-size:0.9rem;color:#94a3b8;">Upload queue</span>
+    <button onclick="clearQueue('video')" style="background:#1e1e2e;border:1px solid #2d2d3f;color:#94a3b8;border-radius:6px;padding:4px 12px;font-size:0.78rem;cursor:pointer;">Clear</button>
+  </div>
+  <div class="queue" id="video-queue"></div>
+
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+    <h2 style="margin-bottom:0;">Uploaded Videos</h2>
+    <div style="display:flex;gap:8px;">
+      <button onclick="exportExcel('video')" style="background:#1e3a5f;color:#60a5fa;border:none;border-radius:6px;padding:6px 14px;font-size:0.8rem;cursor:pointer;">⬇ Download URLs (.xlsx)</button>
+      <button onclick="deleteAll('video')" style="background:#1c0f0f;color:#f87171;border:none;border-radius:6px;padding:6px 14px;font-size:0.8rem;cursor:pointer;">Delete All</button>
+    </div>
+  </div>
+  <div class="library" id="video-library"><div class="lib-empty">Loading…</div></div>
 </div>
-<div id="library"><div id="library-loading">Loading...</div></div>
+
+<!-- ── IMAGE TAB ── -->
+<div id="tab-image" class="tab-panel">
+  <div class="drop-zone" id="image-drop-zone">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+        d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3 20.25h18A.75.75 0 0021.75 19.5V6a.75.75 0 00-.75-.75H3A.75.75 0 002.25 6v13.5c0 .414.336.75.75.75z" />
+    </svg>
+    <p>Drag & drop images here, or <span id="image-browse-btn">browse</span></p>
+    <p style="font-size:0.8rem;margin-top:6px;color:#475569;">JPG, PNG, WebP, GIF · up to 50 MB each</p>
+    <input type="file" class="file-input" id="image-file-input" accept="image/*" multiple />
+  </div>
+
+  <div id="image-queue-header" style="display:none; justify-content:space-between; align-items:center; margin-bottom:10px;">
+    <span style="font-size:0.9rem;color:#94a3b8;">Upload queue</span>
+    <button onclick="clearQueue('image')" style="background:#1e1e2e;border:1px solid #2d2d3f;color:#94a3b8;border-radius:6px;padding:4px 12px;font-size:0.78rem;cursor:pointer;">Clear</button>
+  </div>
+  <div class="queue" id="image-queue"></div>
+
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+    <h2 style="margin-bottom:0;">Uploaded Images</h2>
+    <div style="display:flex;gap:8px;">
+      <button onclick="exportExcel('image')" style="background:#1e3a5f;color:#60a5fa;border:none;border-radius:6px;padding:6px 14px;font-size:0.8rem;cursor:pointer;">⬇ Download URLs (.xlsx)</button>
+      <button onclick="deleteAll('image')" style="background:#1c0f0f;color:#f87171;border:none;border-radius:6px;padding:6px 14px;font-size:0.8rem;cursor:pointer;">Delete All</button>
+    </div>
+  </div>
+  <div class="library" id="image-library"><div class="lib-empty">Loading…</div></div>
+</div>
 
 <script>
-  const dropZone = document.getElementById('drop-zone');
-  const fileInput = document.getElementById('file-input');
-  const browseBtn = document.getElementById('browse-btn');
-  const queue = document.getElementById('queue');
-  const library = document.getElementById('library');
+  // ── Tab switching ──────────────────────────────────────────────────────────
+  function switchTab(tab, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(`tab-${tab}`).classList.add('active');
+  }
 
-  browseBtn.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', () => handleFiles([...fileInput.files]));
+  // ── Drop zones ─────────────────────────────────────────────────────────────
+  function setupDropZone(type) {
+    const zone = document.getElementById(`${type}-drop-zone`);
+    const input = document.getElementById(`${type}-file-input`);
+    const browse = document.getElementById(`${type}-browse-btn`);
+    browse.addEventListener('click', () => input.click());
+    input.addEventListener('change', () => { handleFiles(type, [...input.files]); input.value = ''; });
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault(); zone.classList.remove('drag-over');
+      const mimePrefix = type === 'video' ? 'video/' : 'image/';
+      const files = [...e.dataTransfer.files].filter(f => f.type.startsWith(mimePrefix));
+      if (files.length) handleFiles(type, files);
+    });
+  }
+  setupDropZone('video');
+  setupDropZone('image');
 
-  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-  dropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropZone.classList.remove('drag-over');
-    const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('video/'));
-    if (files.length) handleFiles(files);
-  });
-
+  // ── Helpers ────────────────────────────────────────────────────────────────
   function formatBytes(b) {
     if (b < 1024) return b + ' B';
     if (b < 1024 ** 2) return (b / 1024).toFixed(1) + ' KB';
@@ -273,23 +278,29 @@
     return (b / 1024 ** 3).toFixed(2) + ' GB';
   }
 
-  function handleFiles(files) {
-    files.forEach(uploadFile);
-    fileInput.value = '';
+  function clearQueue(type) {
+    document.getElementById(`${type}-queue`).innerHTML = '';
+    document.getElementById(`${type}-queue-header`).style.display = 'none';
   }
 
-  function clearQueue() {
-    queue.innerHTML = '';
-    document.getElementById('queue-header').style.display = 'none';
+  function exportExcel(type) {
+    window.location.href = type === 'video' ? '/export' : '/export-images';
   }
 
-  function exportExcel() {
-    window.location.href = '/export';
+  function copyUrl(btn, url) {
+    navigator.clipboard.writeText(url).then(() => {
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!'; btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 2000);
+    });
   }
 
-  function uploadFile(file) {
+  // ── Upload ─────────────────────────────────────────────────────────────────
+  function handleFiles(type, files) { files.forEach(f => uploadFile(type, f)); }
+
+  function uploadFile(type, file) {
     const id = Math.random().toString(36).slice(2);
-
+    const queueEl = document.getElementById(`${type}-queue`);
     const item = document.createElement('div');
     item.className = 'queue-item';
     item.id = `qi-${id}`;
@@ -300,45 +311,37 @@
       </div>
       <progress id="qp-${id}" value="0" max="100"></progress>
     `;
-    queue.prepend(item);
-    document.getElementById('queue-header').style.display = 'flex';
+    queueEl.prepend(item);
+    document.getElementById(`${type}-queue-header`).style.display = 'flex';
 
     const xhr = new XMLHttpRequest();
     const fd = new FormData();
-    fd.append('video', file);
+    const fieldName = type === 'video' ? 'video' : 'image';
+    const endpoint = type === 'video' ? '/upload' : '/upload-image';
+    fd.append(fieldName, file);
 
     xhr.upload.addEventListener('progress', e => {
-      if (e.lengthComputable) {
-        document.getElementById(`qp-${id}`).value = Math.round(e.loaded / e.total * 100);
-      }
+      if (e.lengthComputable) document.getElementById(`qp-${id}`).value = Math.round(e.loaded / e.total * 100);
     });
 
     xhr.addEventListener('load', () => {
       const data = JSON.parse(xhr.responseText);
       const statusEl = document.getElementById(`qs-${id}`);
-      const progressEl = document.getElementById(`qp-${id}`);
-      progressEl.value = 100;
-
+      document.getElementById(`qp-${id}`).value = 100;
       if (data.success) {
         statusEl.textContent = 'Done';
         statusEl.className = 'queue-item-status status-done';
         const row = document.createElement('div');
         row.className = 'copy-url-row';
-        row.innerHTML = `
-          <div class="url-text">${data.url}</div>
-          <button class="btn-copy" onclick="copyUrl(this, '${data.url}')">Copy URL</button>
-        `;
+        row.innerHTML = `<div class="url-text">${data.url}</div><button class="btn-copy" onclick="copyUrl(this,'${data.url}')">Copy URL</button>`;
         item.appendChild(row);
         if (data.thumbnailUrl) {
           const thumbRow = document.createElement('div');
           thumbRow.className = 'copy-url-row';
-          thumbRow.innerHTML = `
-            <div class="url-text" style="color:#64748b;">🖼 ${data.thumbnailUrl}</div>
-            <button class="btn-copy" onclick="copyUrl(this, '${data.thumbnailUrl}')">Copy Thumbnail</button>
-          `;
+          thumbRow.innerHTML = `<div class="url-text" style="color:#64748b;">🖼 ${data.thumbnailUrl}</div><button class="btn-copy" onclick="copyUrl(this,'${data.thumbnailUrl}')">Copy Thumbnail</button>`;
           item.appendChild(thumbRow);
         }
-        loadLibrary();
+        loadLibrary(type);
       } else {
         statusEl.textContent = 'Error';
         statusEl.className = 'queue-item-status status-error';
@@ -350,60 +353,53 @@
       document.getElementById(`qs-${id}`).className = 'queue-item-status status-error';
     });
 
-    xhr.open('POST', '/upload');
+    xhr.open('POST', endpoint);
     xhr.send(fd);
   }
 
-  function copyUrl(btn, url) {
-    navigator.clipboard.writeText(url).then(() => {
-      btn.textContent = 'Copied!';
-      btn.classList.add('copied');
-      setTimeout(() => { btn.textContent = 'Copy URL'; btn.classList.remove('copied'); }, 2000);
-    });
-  }
-
-  async function loadLibrary() {
+  // ── Library ────────────────────────────────────────────────────────────────
+  async function loadLibrary(type) {
+    const libEl = document.getElementById(`${type}-library`);
     try {
-      const res = await fetch('/videos');
+      const res = await fetch(`/${type}s`);
       const items = await res.json();
-      if (!items.length) {
-        library.innerHTML = '<div id="library-empty">No videos uploaded yet.</div>';
-        return;
-      }
-      library.innerHTML = items.map(v => `
-        <div class="lib-item">
-          <div class="lib-info">
-            <div class="lib-name">${v.name}</div>
-            <div class="lib-meta">${formatBytes(v.size)} · ${new Date(v.lastModified).toLocaleString()}</div>
-          </div>
-          <div class="lib-actions">
-            <button class="btn-lib-copy" onclick="copyLibUrl(this, '${v.url}')">Copy URL</button>
-            ${v.hasThumbnail ? `<button class="btn-lib-copy" onclick="copyLibUrl(this, '${v.thumbnailUrl}')">Copy Thumbnail</button>` : ''}
-            <button class="btn-lib-delete" onclick="deleteVideo(this, '${v.key}', '${v.name.replace(/'/g, "\\'")}')">Delete</button>
-          </div>
-        </div>
-      `).join('');
+      if (!items.length) { libEl.innerHTML = `<div class="lib-empty">No ${type}s uploaded yet.</div>`; return; }
+      libEl.innerHTML = items.map(v => {
+        const thumbBtn = v.hasThumbnail
+          ? `<button class="btn-lib-copy" onclick="copyUrl(this,'${v.thumbnailUrl}')">Copy Thumbnail</button>`
+          : '';
+        const thumb = type === 'image'
+          ? `<img class="lib-thumb" src="${v.url}" alt="" loading="lazy" />`
+          : (v.hasThumbnail ? `<img class="lib-thumb" src="${v.thumbnailUrl}" alt="" loading="lazy" />` : '');
+        return `
+          <div class="lib-item">
+            ${thumb}
+            <div class="lib-info">
+              <div class="lib-name">${v.name}</div>
+              <div class="lib-meta">${formatBytes(v.size)} · ${new Date(v.lastModified).toLocaleString()}</div>
+            </div>
+            <div class="lib-actions">
+              <button class="btn-lib-copy" onclick="copyUrl(this,'${v.url}')">Copy URL</button>
+              ${thumbBtn}
+              <button class="btn-lib-delete" onclick="confirmDelete('${type}','${v.key}','${v.name.replace(/'/g,"\\'")}')">Delete</button>
+            </div>
+          </div>`;
+      }).join('');
     } catch (e) {
-      library.innerHTML = '<div id="library-empty">Failed to load videos.</div>';
+      libEl.innerHTML = `<div class="lib-empty">Failed to load ${type}s.</div>`;
     }
   }
 
-  function copyLibUrl(btn, url) {
-    navigator.clipboard.writeText(url).then(() => {
-      btn.textContent = 'Copied!';
-      btn.classList.add('copied');
-      setTimeout(() => { btn.textContent = 'Copy URL'; btn.classList.remove('copied'); }, 2000);
-    });
-  }
+  loadLibrary('video');
+  loadLibrary('image');
 
+  // ── Modal ──────────────────────────────────────────────────────────────────
   let modalCallback = null;
 
   function openModal(title, body, confirmLabel, onConfirm) {
     document.getElementById('modal-title').textContent = title;
     document.getElementById('modal-body').textContent = body;
-    const btn = document.getElementById('modal-confirm-btn');
-    btn.textContent = confirmLabel;
-    btn.disabled = false;
+    document.getElementById('modal-confirm-btn').textContent = confirmLabel;
     modalCallback = onConfirm;
     document.getElementById('modal-backdrop').classList.add('open');
   }
@@ -413,30 +409,26 @@
     modalCallback = null;
   }
 
-  document.getElementById('modal-confirm-btn').addEventListener('click', () => {
-    if (modalCallback) modalCallback();
-  });
+  document.getElementById('modal-confirm-btn').addEventListener('click', () => { if (modalCallback) modalCallback(); });
+  document.getElementById('modal-backdrop').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
 
-  document.getElementById('modal-backdrop').addEventListener('click', e => {
-    if (e.target === e.currentTarget) closeModal();
-  });
-
-  function deleteVideo(btn, key, name) {
+  // ── Delete ─────────────────────────────────────────────────────────────────
+  function confirmDelete(type, key, name) {
     openModal(
-      'Delete video?',
+      `Delete ${type}?`,
       `"${name}" will be permanently removed from storage.`,
       'Yes, delete',
       () => {
         closeModal();
         openModal(
           'Are you absolutely sure?',
-          'This cannot be undone. The video and its thumbnail will be deleted from R2.',
+          'This cannot be undone. The file will be permanently deleted.',
           'Delete permanently',
           async () => {
             closeModal();
-            const res = await fetch(`/videos/${key}`, { method: 'DELETE' });
+            const res = await fetch(`/${type}s/${key}`, { method: 'DELETE' });
             const data = await res.json();
-            if (data.success) loadLibrary();
+            if (data.success) loadLibrary(type);
             else alert('Delete failed: ' + data.error);
           }
         );
@@ -444,11 +436,11 @@
     );
   }
 
-  function deleteAll() {
+  function deleteAll(type) {
     openModal(
-      'Delete all videos?',
-      'Every video and thumbnail in the library will be permanently removed from R2 storage.',
-      'Yes, delete all',
+      `Delete all ${type}s?`,
+      `Every ${type} in the library will be permanently removed from R2 storage.`,
+      `Yes, delete all`,
       () => {
         closeModal();
         openModal(
@@ -457,17 +449,15 @@
           'Delete everything',
           async () => {
             closeModal();
-            const res = await fetch('/videos', { method: 'DELETE' });
+            const res = await fetch(`/${type}s`, { method: 'DELETE' });
             const data = await res.json();
-            if (data.success) { loadLibrary(); }
+            if (data.success) loadLibrary(type);
             else alert('Delete all failed: ' + data.error);
           }
         );
       }
     );
   }
-
-  loadLibrary();
 </script>
 </body>
 </html>

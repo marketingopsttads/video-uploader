@@ -67,6 +67,14 @@ const upload = multer({
     else cb(new Error('Only video files are allowed'));
   },
 });
+const uploadImage = multer({
+  storage,
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Only image files are allowed'));
+  },
+});
 
 app.post('/upload', upload.single('video'), async (req, res) => {
   try {
@@ -202,6 +210,95 @@ app.delete('/videos/*key', async (req, res) => {
     // Also delete associated thumbnail
     const base = key.split('/').pop().replace(/\.[^.]+$/, '');
     await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: `thumbnails/${base}.jpg` })).catch(() => {});
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Image endpoints ──────────────────────────────────────────────────────────
+
+app.post('/upload-image', uploadImage.single('image'), async (req, res) => {
+  try {
+    const originalName = req.file.originalname;
+    const ext = path.extname(originalName) || '.jpg';
+    const shortName = originalName.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9]+/g, '_').slice(0, 25).replace(/_+$/, '');
+    const key = `images/${Date.now()}_${shortName}${ext}`;
+    await new Upload({
+      client: s3,
+      params: { Bucket: BUCKET, Key: key, Body: req.file.buffer, ContentType: req.file.mimetype },
+    }).done();
+    const publicUrl = `${PUBLIC_URL}/${key}`;
+    res.json({ success: true, url: publicUrl, key, name: displayName(key), size: req.file.size });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/images', async (req, res) => {
+  try {
+    const data = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'images/' }));
+    const items = (data.Contents || [])
+      .filter(o => o.Key !== 'images/')
+      .sort((a, b) => b.LastModified - a.LastModified)
+      .map(o => ({
+        key: o.Key,
+        url: `${PUBLIC_URL}/${o.Key}`,
+        name: displayName(o.Key),
+        size: o.Size,
+        lastModified: o.LastModified,
+      }));
+    res.json(items);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/export-images', async (req, res) => {
+  try {
+    const data = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'images/' }));
+    const rows = (data.Contents || [])
+      .filter(o => o.Key !== 'images/')
+      .sort((a, b) => b.LastModified - a.LastModified)
+      .map(o => ({
+        'File Name': displayName(o.Key),
+        'URL': `${PUBLIC_URL}/${o.Key}`,
+        'Uploaded At': new Date(o.LastModified).toISOString().replace('T', ' ').slice(0, 19) + ' UTC',
+      }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{ wch: 50 }, { wch: 80 }, { wch: 22 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Images');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Disposition', 'attachment; filename="image-urls.xlsx"');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buf);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/images', async (req, res) => {
+  try {
+    const data = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'images/' }));
+    const keys = (data.Contents || []).filter(o => o.Key !== 'images/').map(o => o.Key);
+    await Promise.all(keys.map(k => s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: k })).catch(() => {})));
+    res.json({ success: true, deleted: keys.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/images/*key', async (req, res) => {
+  try {
+    const raw = req.params.key;
+    const key = Array.isArray(raw) ? raw.join('/') : raw;
+    await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
     res.json({ success: true });
   } catch (err) {
     console.error(err);
