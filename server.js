@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const multer = require('multer');
-const { S3Client, ListObjectsV2Command, DeleteObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, ListObjectsV2Command, DeleteObjectCommand, PutObjectCommand, HeadObjectCommand } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
 const path = require('path');
 const fs = require('fs');
@@ -89,7 +89,7 @@ app.post('/upload', upload.single('video'), async (req, res) => {
     const [, thumbBuffer] = await Promise.all([
       new Upload({
         client: s3,
-        params: { Bucket: BUCKET, Key: key, Body: req.file.buffer, ContentType: req.file.mimetype },
+        params: { Bucket: BUCKET, Key: key, Body: req.file.buffer, ContentType: req.file.mimetype, Metadata: { 'original-name': originalName } },
       }).done(),
       extractThumbnail(req.file.buffer, ext).catch(e => {
         console.warn('Thumbnail extraction failed:', e.message);
@@ -154,23 +154,26 @@ app.get('/export', async (req, res) => {
       s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'thumbnails/' })),
     ]);
     const thumbSet = new Set((thumbData.Contents || []).map(o => o.Key.split('/').pop()));
-    const rows = (videoData.Contents || [])
-      .filter(o => o.Key !== 'videos/')
-      .sort((a, b) => b.LastModified - a.LastModified)
-      .map(o => {
-        const base = o.Key.split('/').pop().replace(/\.[^.]+$/, '');
-        const thumbFile = `${base}.jpg`;
-        const row = {
-          'File Name': displayName(o.Key),
-          'URL': `${PUBLIC_URL}/${o.Key}`,
-          'Uploaded At': new Date(o.LastModified).toISOString().replace('T', ' ').slice(0, 19) + ' UTC',
-        };
-        if (thumbSet.has(thumbFile)) row['Thumbnail URL'] = `${THUMBNAIL_PUBLIC_URL}/thumbnails/${thumbFile}`;
-        return row;
-      });
+    const videoObjects = (videoData.Contents || []).filter(o => o.Key !== 'videos/').sort((a, b) => b.LastModified - a.LastModified);
+    const metas = await Promise.all(videoObjects.map(o =>
+      s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: o.Key })).catch(() => ({}))
+    ));
+    const rows = videoObjects.map((o, i) => {
+      const base = o.Key.split('/').pop().replace(/\.[^.]+$/, '');
+      const thumbFile = `${base}.jpg`;
+      const originalName = metas[i]?.Metadata?.['original-name'] || '';
+      const row = {
+        'Uploaded File Name': displayName(o.Key),
+        'Original File Name': originalName,
+        'URL': `${PUBLIC_URL}/${o.Key}`,
+        'Uploaded At': new Date(o.LastModified).toISOString().replace('T', ' ').slice(0, 19) + ' UTC',
+      };
+      if (thumbSet.has(thumbFile)) row['Thumbnail URL'] = `${THUMBNAIL_PUBLIC_URL}/thumbnails/${thumbFile}`;
+      return row;
+    });
 
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 50 }, { wch: 80 }, { wch: 22 }, { wch: 80 }];
+    ws['!cols'] = [{ wch: 40 }, { wch: 50 }, { wch: 80 }, { wch: 22 }, { wch: 80 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Videos');
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
@@ -227,7 +230,7 @@ app.post('/upload-image', uploadImage.single('image'), async (req, res) => {
     const key = `images/${Date.now()}_${shortName}${ext}`;
     await new Upload({
       client: s3,
-      params: { Bucket: BUCKET, Key: key, Body: req.file.buffer, ContentType: req.file.mimetype },
+      params: { Bucket: BUCKET, Key: key, Body: req.file.buffer, ContentType: req.file.mimetype, Metadata: { 'original-name': originalName } },
     }).done();
     const publicUrl = `${PUBLIC_URL}/${key}`;
     res.json({ success: true, url: publicUrl, key, name: displayName(key), size: req.file.size });
@@ -260,16 +263,18 @@ app.get('/images', async (req, res) => {
 app.get('/export-images', async (req, res) => {
   try {
     const data = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'images/' }));
-    const rows = (data.Contents || [])
-      .filter(o => o.Key !== 'images/')
-      .sort((a, b) => b.LastModified - a.LastModified)
-      .map(o => ({
-        'File Name': displayName(o.Key),
-        'URL': `${PUBLIC_URL}/${o.Key}`,
-        'Uploaded At': new Date(o.LastModified).toISOString().replace('T', ' ').slice(0, 19) + ' UTC',
-      }));
+    const imageObjects = (data.Contents || []).filter(o => o.Key !== 'images/').sort((a, b) => b.LastModified - a.LastModified);
+    const metas = await Promise.all(imageObjects.map(o =>
+      s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: o.Key })).catch(() => ({}))
+    ));
+    const rows = imageObjects.map((o, i) => ({
+      'Uploaded File Name': displayName(o.Key),
+      'Original File Name': metas[i]?.Metadata?.['original-name'] || '',
+      'URL': `${PUBLIC_URL}/${o.Key}`,
+      'Uploaded At': new Date(o.LastModified).toISOString().replace('T', ' ').slice(0, 19) + ' UTC',
+    }));
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 50 }, { wch: 80 }, { wch: 22 }];
+    ws['!cols'] = [{ wch: 40 }, { wch: 50 }, { wch: 80 }, { wch: 22 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Images');
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
