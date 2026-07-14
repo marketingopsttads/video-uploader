@@ -27,6 +27,20 @@ const BUCKET = process.env.R2_BUCKET_NAME;
 const PUBLIC_URL = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
 const THUMBNAIL_PUBLIC_URL = (process.env.THUMBNAIL_PUBLIC_URL || PUBLIC_URL).replace(/\/$/, '');
 
+// Paginate through all R2 objects under a prefix (ListObjectsV2 caps at 1000 per page)
+async function listAll(prefix) {
+  const items = [];
+  let token;
+  do {
+    const params = { Bucket: BUCKET, Prefix: prefix };
+    if (token) params.ContinuationToken = token;
+    const res = await s3.send(new ListObjectsV2Command(params));
+    items.push(...(res.Contents || []));
+    token = res.IsTruncated ? res.NextContinuationToken : null;
+  } while (token);
+  return items;
+}
+
 function displayName(key) {
   const base = key.split('/').pop();
   const noExt = base.replace(/\.[^.]+$/, '');
@@ -119,12 +133,12 @@ app.post('/upload', upload.single('video'), async (req, res) => {
 
 app.get('/videos', async (req, res) => {
   try {
-    const [videoData, thumbData] = await Promise.all([
-      s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'videos/' })),
-      s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'thumbnails/' })),
+    const [videoObjs, thumbObjs] = await Promise.all([
+      listAll('videos/'),
+      listAll('thumbnails/'),
     ]);
-    const thumbSet = new Set((thumbData.Contents || []).map(o => o.Key.split('/').pop()));
-    const items = (videoData.Contents || [])
+    const thumbSet = new Set(thumbObjs.map(o => o.Key.split('/').pop()));
+    const items = videoObjs
       .filter(o => o.Key !== 'videos/')
       .sort((a, b) => b.LastModified - a.LastModified)
       .map(o => {
@@ -149,12 +163,12 @@ app.get('/videos', async (req, res) => {
 
 app.get('/export', async (req, res) => {
   try {
-    const [videoData, thumbData] = await Promise.all([
-      s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'videos/' })),
-      s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'thumbnails/' })),
+    const [videoObjs, thumbObjs] = await Promise.all([
+      listAll('videos/'),
+      listAll('thumbnails/'),
     ]);
-    const thumbSet = new Set((thumbData.Contents || []).map(o => o.Key.split('/').pop()));
-    const videoObjects = (videoData.Contents || []).filter(o => o.Key !== 'videos/').sort((a, b) => b.LastModified - a.LastModified);
+    const thumbSet = new Set(thumbObjs.map(o => o.Key.split('/').pop()));
+    const videoObjects = videoObjs.filter(o => o.Key !== 'videos/').sort((a, b) => b.LastModified - a.LastModified);
     const metas = await Promise.all(videoObjects.map(o =>
       s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: o.Key })).catch(() => ({}))
     ));
@@ -189,13 +203,13 @@ app.get('/export', async (req, res) => {
 
 app.delete('/videos', async (req, res) => {
   try {
-    const [videoData, thumbData] = await Promise.all([
-      s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'videos/' })),
-      s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'thumbnails/' })),
+    const [videoObjs, thumbObjs] = await Promise.all([
+      listAll('videos/'),
+      listAll('thumbnails/'),
     ]);
     const keys = [
-      ...(videoData.Contents || []).filter(o => o.Key !== 'videos/').map(o => o.Key),
-      ...(thumbData.Contents || []).map(o => o.Key),
+      ...videoObjs.filter(o => o.Key !== 'videos/').map(o => o.Key),
+      ...thumbObjs.map(o => o.Key),
     ];
     await Promise.all(keys.map(k => s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: k })).catch(() => {})));
     res.json({ success: true, deleted: keys.length });
@@ -242,8 +256,8 @@ app.post('/upload-image', uploadImage.single('image'), async (req, res) => {
 
 app.get('/images', async (req, res) => {
   try {
-    const data = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'images/' }));
-    const items = (data.Contents || [])
+    const imageObjs = await listAll('images/');
+    const items = imageObjs
       .filter(o => o.Key !== 'images/')
       .sort((a, b) => b.LastModified - a.LastModified)
       .map(o => ({
@@ -262,8 +276,7 @@ app.get('/images', async (req, res) => {
 
 app.get('/export-images', async (req, res) => {
   try {
-    const data = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'images/' }));
-    const imageObjects = (data.Contents || []).filter(o => o.Key !== 'images/').sort((a, b) => b.LastModified - a.LastModified);
+    const imageObjects = (await listAll('images/')).filter(o => o.Key !== 'images/').sort((a, b) => b.LastModified - a.LastModified);
     const metas = await Promise.all(imageObjects.map(o =>
       s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: o.Key })).catch(() => ({}))
     ));
@@ -289,8 +302,7 @@ app.get('/export-images', async (req, res) => {
 
 app.delete('/images', async (req, res) => {
   try {
-    const data = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: 'images/' }));
-    const keys = (data.Contents || []).filter(o => o.Key !== 'images/').map(o => o.Key);
+    const keys = (await listAll('images/')).filter(o => o.Key !== 'images/').map(o => o.Key);
     await Promise.all(keys.map(k => s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: k })).catch(() => {})));
     res.json({ success: true, deleted: keys.length });
   } catch (err) {
