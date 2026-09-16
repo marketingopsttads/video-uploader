@@ -56,10 +56,12 @@ async function extractThumbnail(videoBuffer, videoExt) {
     fs.writeFileSync(tmpVideo, videoBuffer);
     await new Promise((resolve, reject) => {
       execFile(ffmpegPath, [
-        '-ss', '3',           // seek to 3 seconds
+        '-ss', '3',
         '-i', tmpVideo,
-        '-vframes', '1',      // grab one frame
-        '-q:v', '2',          // high quality JPEG
+        '-vframes', '1',
+        // Scale to fill 1080x1920 (9:16), crop any excess — meets TikTok min of 540x960
+        '-vf', 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920',
+        '-q:v', '2',
         '-y', tmpThumb,
       ], { timeout: 30000 }, (err) => {
         if (err) reject(err); else resolve();
